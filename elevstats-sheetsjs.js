@@ -14,11 +14,21 @@ filesavescript.type = "text/javascript";
 filesavescript.src = "https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/1.3.8/FileSaver.min.js";
 $("head").append(filesavescript);
 
-/*Loading SheetJS js with requireJS*/
-require(["https://cdn.jsdelivr.net/gh/sheetjs/sheetjs/dist/xlsx.full.min.js"], function (XLSX) {
-    /* use XLSX here */
-    console.log('SheetJS loaded..');
+require.config({paths: {
+    xlsx: "https://cdn.jsdelivr.net/gh/sheetjs/sheetjs/dist/xlsx.full.min"
+}
 });
+/*Loading SheetJS js with requireJS*/
+require(["xlsx"], function (XLSX) {
+/* use XLSX here */
+console.log('SheetJS loaded..');
+});
+
+/*Loading SheetJS js with requireJS*/
+//require(["https://cdn.jsdelivr.net/gh/sheetjs/sheetjs/dist/xlsx.full.min.js"], function (XLSX) {
+    /* use XLSX here */
+  //  console.log('SheetJS loaded..');
+//});
 
 
 setTimeout(function () {
