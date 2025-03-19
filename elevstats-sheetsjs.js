@@ -103,7 +103,7 @@ setTimeout(function () {
             }
 
             var elevcard = `
-            <div class="col-12 col-sm-6 col-md-4 col-xl-2 px-2">
+            <div class="col-12 col-sm-6 col-md-4 mt-2">
                 <div id="elevcard-${studentid}" class="elevcard card bg-white border rounded">
                     <div class="card-header">
                     ${student} 
