@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elevstatistik Bookmarklet</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      color: #0056b3;
+    }
+    p {
+      line-height: 1.6;
+    }
+    .bookmarklet {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 10px 20px;
+      background: #0056b3;
+      color: #fff;
+      text-decoration: none;
+      border-radius: 4px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .bookmarklet:hover {
+      background: #003d80;
+    }
+    .info {
+      font-size: 0.9em;
+      color: #555;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Elevstatistik Bookmarklet</h1>
+  <p>Denne bookmarklet udtrækker data om elevers opgaver fra en Moodle-brugerliste-side.</p>
+  <p>Når bookmarkleten aktiveres, vil den:</p>
+  <ul>
+    <li>Skrolle til toppen af siden.</li>
+    <li>Hente data for de elever, der er markeret (checkede) i Moodle-brugerlisten.</li>
+    <li>Udtrække antallet af opgaver, antallet af afleverede opgaver og beregne en afleveringsprocent.</li>
+    <li>Vise et overskueligt UI med elevkort, diagram og detaljeret statistik.</li>
+    <li>Give mulighed for at downloade data for den enkelte elev eller for alle elever samlet som en Excel-fil.</li>
+  </ul>
+  <p>For at bruge bookmarkleten skal du blot trække knappen nedenfor til din bogmærkelinje. Når du herefter besøger en Moodle-brugerliste-side, klik på bookmarkleten for at køre scriptet.</p>
+  <a class="bookmarklet" href="javascript:(function()%7Bwindow.scrollTo(%7Btop%3A0%2Cbehavior%3A%22smooth%22%7D)%3Bvar%20googlescript%3Ddocument.createElement(%22script%22)%3Bgooglescript.type%3D%22text%2Fjavascript%22%2Cgooglescript.src%3D%22https%3A%2F%2Fwww.gstatic.com%2Fcharts%2Floader.js%22%2C%24(%22head%22).append(googlescript)%3Bvar%20filesavescript%3Ddocument.createElement(%22script%22)%3Bfunction%20s2ab(e)%7Bfor(var%20t%3Dnew%20ArrayBuffer(e.length)%2Ca%3Dnew%20Uint8Array(t)%2Cs%3D0%3Bs%3Ce.length%3Bs%2B%2B)a%5Bs%5D%3D255%26e.charCodeAt(s)%3Breturn%20t%7Dfilesavescript.type%3D%22text%2Fjavascript%22%2Cfilesavescript.src%3D%22https%3A%2F%2Fcdnjs.cloudflare.com%2Fajax%2Flibs%2FFileSaver.js%2F1.3.8%2FFileSaver.min.js%22%2C%24(%22head%22).append(filesavescript)%2Crequire.config(%7Bpaths%3A%7Bxlsx%3A%22https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fsheetjs%2Fsheetjs%2Fdist%2Fxlsx.full.min%22%7D%7D)%2Crequire(%5B%22xlsx%22%5D%2Cfunction(e)%7Bconsole.log(%22SheetJS%20loaded..%22)%7D)%2CsetTimeout(function()%7Bgoogle.charts.load(%22current%22%2C%7Bpackages%3A%5B%22corechart%22%5D%7D)%3Bvar%20e%3D%60%3Cdiv%20id%3D%22elevstatWrapper%22%20class%3D%22shadow%20p-3%20mb-5%20bg-dark%20rounded%20%22%20style%3D%22z-index%3A%201000%3B%20%22%3E%3Cdiv%20class%3D%22row%20text-light%20p-3%22%3E%3Ch4%20class%3D%22text-white%22%3EElevstatistik%20overblik%3C%2Fh4%3E%3Cdiv%20class%3D%22spinner-border%20mx-auto%22%20role%3D%22status%22%3E%3C%2Fdiv%3E%3Cbutton%20class%3D%22elevstat-download-all%20btn%20btn-light%20text-dark%20ml-auto%20%22%20type%3D%22button%22%20data-toggle%3D%22tooltip%22%20data-placement%3D%22top%22%20title%3D%22Download%20alle%20data%20som%20Excel%20fil%22%20disabled%3E%3Ci%20class%3D%22fa%20fa-download%22%3E%3C%2Fi%3E%20Download%3C%2Fbutton%3E%3Cbutton%20id%3D%22elevstatCloseButton%22%20class%3D%22btn%20btn-danger%20text-white%20ml-2%22%20aria-label%3D%22luk%20elevstatistik%22%20data-toggle%3D%22tooltip%22%20data-placement%3D%22top%22%20title%3D%22Luk%20statistikken%22%20disabled%3E%3Ci%20class%3D%22fa%20fa-times-circle%22%3E%3C%2Fi%3E%20Afslut%3C%2Fbutton%3E%3C%2Fdiv%3E%3Cdiv%20id%3D%22elevstatCards%22%20class%3D%22row%22%3E%3C!--Elevcards--%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%60%3B%24(%22div%23page%22).prepend(e)%2C%24(%22body%22).append('%3Cdiv%20id%3D%22loadelevpage%22%20class%3D%22invisible%22%3E%3C%2Fdiv%3E')%3Bvar%20t%3D%24(%22%23participants%20tbody%20tr%3Anot(.emptyrow)%22).has(%22input.usercheckbox%3Achecked%22).find(%22th.c1%22)%3Bfor(i%3D0%3Bi%3Ct.length%3Bi%2B%2B)%7B%24(t%5Bi%5D).text()%3Bvar%20a%3D%24(t%5Bi%5D).find(%22a%22).attr(%22href%22)%2Cs%3Dnew%20URL(a)%2Cl%3Dnew%20window.URLSearchParams(s.search)%2Cr%3Dl.get(%22id%22)%2Co%3Dl.get(%22course%22)%2Cd%3Dt.length%3B%24(%22%23loadelevpage%22).load(%22%2Freport%2Foutline%2Fuser.php%3Fid%3D%22%2Br%2B%22%26course%3D%22%2Bo%2B%22%26mode%3Dcomplete%20%23region-main-box%22%2Cfunction()%7Bvar%20e%3D%24(%22%23loadelevpage%20.page-header-headings%20h2%22).text()%2Ct%3D%24(%22%23loadelevpage%20%23message-user-button%22).data(%22userid%22)%2Ca%3D%5B%5D%2Cs%3D%24(%22%23loadelevpage%20.submissionstatustable%22)%2Cl%3Ds.length%2Cr%3D%24(%22%23loadelevpage%20.submissionstatussubmitted%22).length%2Co%3DMath.floor(r%2Fl*100)%3B%24(%22%23loadelevpage%20.submissionstatustable%22).parent(%22ul%22).prev(%22h4%22).each(function(e)%7Blet%20t%3D%7B%7D%3Bt.titel%3D%24(this).text()%3B%24(s%5Be%5D).find(%22.submissionstatussubmitted%22).length%3C1%3Ft.afleveret%3D%22Nej%22%3At.afleveret%3D%22Ja%22%2Ca.push(t)%7D)%2ClocalStorage.setItem(%22elevstat-%22%2Bt%2CJSON.stringify(a))%3Bfor(var%20c%3D%22%22%2Cn%3D0%3Bn%3Ca.length%3Bn%2B%2B)c%2B%3D%60%3Cli%20class%3D%22list-group-item%20d-flex%20justify-content-between%20align-items-center%22%3E%24%7Ba%5Bn%5D.titel%7D%3Cspan%20class%3D%22badge%20%24%7B%22Ja%22%3D%3Da%5Bn%5D.afleveret%3F%22badge-success%22%3A%22badge-warning%22%7D%20badge-pill%22%3E%24%7Ba%5Bn%5D.afleveret%7D%3C%2Fspan%3E%3C%2Fli%3E%60%3Bvar%20v%3D%60%3Cdiv%20class%3D%22col-12%20col-sm-6%20col-md-4%20mt-2%22%3E%3Cdiv%20id%3D%22elevcard-%24%7Bt%7D%22%20class%3D%22elevcard%20card%20bg-white%20border%20rounded%22%3E%3Cdiv%20class%3D%22card-header%22%3E%24%7Be%7D%3C%2Fdiv%3E%3Cdiv%20id%3D%22chart-%24%7Bt%7D%22%3E%3Cspan%20class%3D%22sr-only%22%3ELoading...%3C%2Fspan%3E%3C%2Fdiv%3E%3Cdiv%20class%3D%22card-body%22%3E%3Cp%20class%3D%22text-right%22%3E%3Cbutton%20class%3D%22show-details%20btn%20btn-secondary%20%22%20type%3D%22button%22%20data-toggle%3D%22collapse%22%20data-userid%3D%22%24%7Bt%7D%22%20data-target%3D%22%23elevstatDetaljer-%24%7Bt%7D%22%20aria-expanded%3D%22false%22%20aria-controls%3D%22elevstatDetaljer-%24%7Bt%7D%22%20disabled%3E%3Ci%20class%3D%22fa%20fa-spinner%20fa-spin%22%3E%3C%2Fi%3E%20Henter%20Data%3C%2Fbutton%3E%3Cbutton%20class%3D%22elevstat-download%20btn%20btn-secondary%20%22%20type%3D%22button%22%20data-userid%3D%22%24%7Bt%7D%22%20data-user%3D%22%24%7Be%7D%22%20data-toggle%3D%22tooltip%22%20data-placement%3D%22top%22%20title%3D%22Download%20elevens%20data%20som%20Excel%20fil%22%20disabled%3E%3Ci%20class%3D%22fa%20fa-download%22%3E%3C%2Fi%3E%3C%2Fbutton%3E%3C%2Fp%3E%3Cdiv%20class%3D%22collapse%22%20id%3D%22elevstatDetaljer-%24%7Bt%7D%22%3E%3Cp%20class%3D%22card-text%22%3E%24%7Be%7D%20har%20afleveret%20%24%7Br%7D%20ud%20af%20%24%7Bl%7D%20og%20har%20derfor%20en%20afleveringsprocent%20p%5Cxe5%20%24%7Bo%7D%25.%3C%2Fp%3E%3Cul%20class%3D%22list-group%22%3E%24%7Bc%7D%3C%2Ful%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%3C%2Fdiv%3E%60%3B%24(%22%23elevstatCards%22).append(v)%3Bvar%20p%3Dgoogle.visualization.arrayToDataTable(%5B%5B%22Opgaver%22%2C%22Afleverede%22%5D%2C%5B%22Afleveret%22%2Cr%5D%2C%5B%22Ikke%20Afleveret%22%2Cl-r%5D%5D)%2Ch%3D%7Btitle%3A%22Afleveringer%22%2CbackgroundColor%3A%22%23f2f2f2%22%2Cwidth%3A%22auto%22%2Cheight%3A%22auto%22%2Clegend%3A%7Bposition%3A%22bottom%22%7D%7D%2Cu%3D%60chart-%24%7Bt%7D%60%3Bnew%20google.visualization.PieChart(document.getElementById(u)).draw(p%2Ch)%2C0%3D%3D--d%26%26(%24(%22.show-details%22).removeAttr(%22disabled%22)%2C%24(%22.elevstat-download-all%22).removeAttr(%22disabled%22)%2C%24(%22.elevstat-download%22).removeAttr(%22disabled%22)%2C%24(%22%23elevstatCloseButton%22).removeAttr(%22disabled%22)%2C%24(%22.show-details%22).text(%22Se%20Detaljer%22)%2C%24(%22.fa-spinner%22).remove()%2C%24(%22.spinner-border%22).remove()%2C%24(%22.show-details%22).click(function()%7Bvar%20e%3D%24(this)%3Be.text(%22Se%20Detaljer%22%3D%3De.text()%3F%22Skjul%20Detaljer%22%3A%22Se%20Detaljer%22)%7D)%2C%24(%22%23elevstatCloseButton%22).click(function()%7Bconfirm(%22Er%20du%20sikker%20p%5Cxe5%20at%20du%20vil%20lukke%20statistikken%3F%22)%26%26(%24(%22.elevstat-download%22).each(function(e)%7Blet%20t%3D%24(this).data(%22userid%22)%3Bconsole.log(t)%2ClocalStorage.removeItem(%22elevstat-%22%2Bt)%7D)%2C%24(%22%23elevstatWrapper%22).remove()%2C%24(%22%23loadelevpage%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2Floader.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fcdnjs.cloudflare.com%2Fajax%2Flibs%2FFileSaver.js%2F1.3.8%2FFileSaver.min.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fcdn.jsdelivr.net%2Fgh%2Fsheetjs%2Fsheetjs%2Fdist%2Fxlsx.full.min.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Floader.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fjs%2Fjsapi_compiled_default_module.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fjs%2Fjsapi_compiled_graphics_module.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fjs%2Fjsapi_compiled_ui_module.js'%5D%22).remove()%2C%24(%22script%5Bsrc%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fjs%2Fjsapi_compiled_corechart_module.js'%5D%22).remove()%2C%24(%22link%5Bhref%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fcss%2Fcore%2Ftooltip.css'%5D%22).remove()%2C%24(%22link%5Bhref%3D'https%3A%2F%2Fwww.gstatic.com%2Fcharts%2F51%2Fcss%2Futil%2Futil.css'%5D%22).remove())%7D)%2C%24(%22.elevstat-download%22).click(function()%7Bvar%20e%3DJSON.parse(localStorage.getItem(%22elevstat-%22%2B%24(this).data(%22userid%22)))%2Ct%3D%24(this).data(%22user%22)%3Bconsole.log(e)%3Bvar%20a%3D%5B%5D%3Bfor(a.push(%5B%22Opgave%22%2C%22Afleveret%22%5D)%2Cn%3D0%3Be.length%3En%3Bn%2B%2B)%7Blet%20s%2Cl%3D%5Be%5Bn%5D.titel%2Ce%5Bn%5D.afleveret%5D%3Ba.push(l)%7Dvar%20r%3DXLSX.utils.book_new()%3Br.Props%3D%7BTitle%3A%22Elev%20Statistik%22%2CSubject%3A%22Elevstatistik%22%2CAuthor%3A%22Claus%20Hansen%20-%20clh%40zbc.dk%22%2CCreatedDate%3Anew%20Date%7D%2Cr.SheetNames.push(%22Afleveringer%22)%3Bvar%20o%3Da%2Cd%3DXLSX.utils.aoa_to_sheet(o)%3Br.Sheets.Afleveringer%3Dd%3Bvar%20c%3DXLSX.write(r%2C%7BbookType%3A%22xlsx%22%2Ctype%3A%22binary%22%7D)%3BsaveAs(new%20Blob(%5Bs2ab(c)%5D%2C%7Btype%3A%22application%2Foctet-stream%22%7D)%2C%22afleveringer-%22%2Bt%2B%22.xlsx%22)%7D)%2C%24(%22.elevstat-download-all%22).click(function()%7Bvar%20e%3DXLSX.utils.book_new()%3Be.Props%3D%7BTitle%3A%22Elev%20afleveringer%20Statistik%22%2CSubject%3A%22Elevstatistik%22%2CAuthor%3A%22Claus%20Hansen%20-%20clh%40zbc.dk%22%2CCreatedDate%3Anew%20Date%7D%2C%24(%22.elevstat-download%22).each(function(t)%7Bvar%20a%3DJSON.parse(localStorage.getItem(%22elevstat-%22%2B%24(this).data(%22userid%22)))%2Cs%3D%24(this).data(%22user%22)%3Bs%3Ds.substring(0%2C30)%3Bvar%20l%3D%5B%5D%3Bfor(l.push(%5B%22Opgave%22%2C%22Afleveret%22%5D)%2Cn%3D0%3Ba.length%3En%3Bn%2B%2B)%7Blet%20r%2Co%3D%5Ba%5Bn%5D.titel%2Ca%5Bn%5D.afleveret%5D%3Bl.push(o)%7De.SheetNames.push(s)%3Bvar%20d%3Dl%2Cc%3DXLSX.utils.aoa_to_sheet(d)%3Be.Sheets%5Bs%5D%3Dc%7D)%3Bvar%20t%3DXLSX.write(e%2C%7BbookType%3A%22xlsx%22%2Ctype%3A%22binary%22%7D)%3BsaveAs(new%20Blob(%5Bs2ab(t)%5D%2C%7Btype%3A%22application%2Foctet-stream%22%7D)%2C%22samlet-afleverings-statistik-.xlsx%22)%7D))%7D)%7D%7D%2C1e3)%7D)()" title="Træk til bogmærkelinjen">Elevstatistik Bookmarklet</a>
+  <p class="info">
+    Træk knappen direkte til din bogmærkelinje.
+  </p>
+</body>
+</html>
