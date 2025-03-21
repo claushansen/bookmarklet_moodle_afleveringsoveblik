@@ -55,7 +55,9 @@ setTimeout(function () {
     $('body').append(loadElevPage);
 
     /*Processing students */
-    var elever = $('#participants tbody tr:not(.emptyrow) th.c1');
+    var elever = $('#participants tbody tr:not(.emptyrow)')
+               .has('input.usercheckbox:checked')
+               .find('th.c1');
     for (i = 0; i < elever.length; i++) {
         var elevnavn = $(elever[i]).text();
         var elevlink = $(elever[i]).find('a').attr('href');
