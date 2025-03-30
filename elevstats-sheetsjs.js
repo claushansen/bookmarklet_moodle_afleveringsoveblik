@@ -32,6 +32,14 @@ console.log('SheetJS loaded..');
 
 
 setTimeout(function () {
+    /*Checking if any students are selected*/
+    var selectedStudents = $('#participants tbody tr:not(.emptyrow)').has('input.usercheckbox:checked').length;
+    
+    if (selectedStudents === 0) {
+        alert('Du skal vælge mindst én elev før du kan køre statistikken!');
+        return;
+    }
+    
     google.charts.load('current', { 'packages': ['corechart'] });
     //google.charts.setOnLoadCallback(drawChart);
 
