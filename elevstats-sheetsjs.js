@@ -89,26 +89,30 @@ setTimeout(function () {
         var loadingCounter = elever.length;
 
         $("#loadelevpage").load("/report/outline/user.php?id=" + elevid + "&course=" + kursusid + "&mode=complete #region-main-box", function () {
-
             var student = $('#loadelevpage .page-header-headings h2').text();
             var studentid = $('#loadelevpage #message-user-button').data('userid');
             var opgaveresult = [];
-            var alleOpgaver = $('#loadelevpage .submissionstatustable');
-            var antalOpgaver = alleOpgaver.length;
-            var antalAfleverede = $('#loadelevpage .submissionstatussubmitted').length;
+            
+            // Find alle sektioner
+            $('#loadelevpage .section').each(function() {
+                var emne = $(this).find('h2').first().text();
+                
+                // Find alle opgaver i denne sektion
+                $(this).find('.submissionstatustable').parent('ul').prev('h4').each(function(index) {
+                    let obj = {};
+                    obj.emne = emne;
+                    obj.titel = $(this).text();
+                    let findSubmitted = $(this).next('ul').find('.submissionstatussubmitted');
+                    obj.afleveret = findSubmitted.length < 1 ? 'Nej' : 'Ja';
+                    opgaveresult.push(obj);
+                });
+            });
+
+            // Beregn statistik
+            var antalOpgaver = opgaveresult.length;
+            var antalAfleverede = opgaveresult.filter(opgave => opgave.afleveret === 'Ja').length;
             var afleveringsprocent = Math.floor((antalAfleverede / antalOpgaver) * 100);
-            $('#loadelevpage .submissionstatustable').parent('ul').prev('h4').each(function (index) {
-                let obj = {};
-                obj.titel = $(this).text();
-                let findSubmitted = $(alleOpgaver[index]).find('.submissionstatussubmitted');
-                if (findSubmitted.length < 1) {
-                    obj.afleveret = 'Nej';
-                } else {
-                    obj.afleveret = 'Ja';
-                }
-                opgaveresult.push(obj);
-            }
-            );
+
             /*Localstorage- saving data for later export*/
             localStorage.setItem('elevstat-' + studentid, JSON.stringify(opgaveresult));
 
@@ -224,9 +228,9 @@ setTimeout(function () {
                             CreatedDate: new Date()
                         };
                         wb.SheetNames.push("Afleveringer");
-                        var ws_data = [["Opgave", "Afleveret"]];
+                        var ws_data = [["Emne", "Opgave", "Afleveret"]];  // Ændret fra Sektion til Emne
                         data.forEach(item => {
-                            ws_data.push([item.titel, item.afleveret]);
+                            ws_data.push([item.emne, item.titel, item.afleveret]);
                         });
                         var ws = XLSX.utils.aoa_to_sheet(ws_data);
                         wb.Sheets["Afleveringer"] = ws;
@@ -235,9 +239,9 @@ setTimeout(function () {
                     } 
                     else if ($(this).hasClass('download-csv')) {
                         console.log("Downloading CSV");
-                        let csvContent = "Opgave,Afleveret\n";
+                        let csvContent = "Emne,Opgave,Afleveret\n";  // Ændret fra Sektion til Emne
                         data.forEach(row => {
-                            csvContent += `"${row.titel}","${row.afleveret}"\n`;
+                            csvContent += `"${row.emne}","${row.titel}","${row.afleveret}"\n`;
                         });
                         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                         saveAs(blob, 'afleveringer-' + username + '.csv');
@@ -268,9 +272,9 @@ setTimeout(function () {
                         var opgaveresult = JSON.parse(localStorage.getItem('elevstat-' + userid));
                         
                         if (opgaveresult) {
-                            var ws_data = [["Opgave", "Afleveret"]];
+                            var ws_data = [["Emne", "Opgave", "Afleveret"]];  // Ændret fra Sektion til Emne
                             opgaveresult.forEach(item => {
-                                ws_data.push([item.titel, item.afleveret]);
+                                ws_data.push([item.emne, item.titel, item.afleveret]);
                             });
                             wb.SheetNames.push(student);
                             var ws = XLSX.utils.aoa_to_sheet(ws_data);
@@ -362,9 +366,9 @@ function s2ab(s) {
 }
 
 function exportToCSV(data, filename) {
-    let csvContent = "Opgave,Afleveret\n";
+    let csvContent = "Emne,Opgave,Afleveret\n";  // Ændret fra Sektion til Emne
     data.forEach(row => {
-        csvContent += `"${row.titel}","${row.afleveret}"\n`;
+        csvContent += `"${row.emne}","${row.titel}","${row.afleveret}"\n`;
     });
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
