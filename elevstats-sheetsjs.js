@@ -50,8 +50,19 @@ setTimeout(function () {
             <div class="row text-light p-3">
                 <h4 class="text-white">Elevstatistik overblik</h4>
                 <div class="spinner-border mx-auto" role="status"></div>
-                <button class="elevstat-download-all btn btn-light text-dark ml-auto " type="button" data-toggle="tooltip" data-placement="top" title="Download alle data som Excel fil" disabled><i class="fa fa-download"></i> Download</button>
-                <button id="elevstatCloseButton" class="btn btn-danger text-white ml-2" aria-label="luk elevstatistik" data-toggle="tooltip" data-placement="top" title="Luk statistikken" disabled><i class="fa fa-times-circle"></i> Afslut</button>
+                <div class="dropdown ml-auto">
+                    <button class="elevstat-download-all btn btn-light dropdown-toggle" type="button" data-toggle="dropdown" disabled>
+                        <i class="fa fa-download"></i> Download alle
+                    </button>
+                    <div class="dropdown-menu download-all-menu">
+                        <a class="dropdown-item download-all-excel" href="#"><i class="fa fa-file-excel-o"></i> Excel (.xlsx)</a>
+                        <a class="dropdown-item download-all-csv" href="#"><i class="fa fa-file-text-o"></i> CSV (.csv)</a>
+                        <a class="dropdown-item download-all-json" href="#"><i class="fa fa-file-code-o"></i> JSON (.json)</a>
+                    </div>
+                </div>
+                <button id="elevstatCloseButton" class="btn btn-danger text-white ml-2" aria-label="luk elevstatistik" data-toggle="tooltip" data-placement="top" title="Luk statistikken" disabled>
+                    <i class="fa fa-times-circle"></i> Afslut
+                </button>
             </div>
             <div id="elevstatCards" class="row">
                 <!--Elevcards-->     
@@ -122,10 +133,22 @@ setTimeout(function () {
                         <span class="sr-only">Loading...</span>
                     </div>
                     <div class="card-body">                        
-                        <p class="text-right"><button class="show-details btn btn-secondary " type="button" data-toggle="collapse" data-userid="${studentid}" data-target="#elevstatDetaljer-${studentid}" aria-expanded="false" aria-controls="elevstatDetaljer-${studentid}" disabled><i class="fa fa-spinner fa-spin"></i> Henter Data</button>
-                        <button class="elevstat-download btn btn-secondary " type="button" data-userid="${studentid}" data-user="${student}" data-toggle="tooltip" data-placement="top" title="Download elevens data som Excel fil" disabled><i class="fa fa-download"></i></button>
-                        </p>
-                        <div class="collapse" id="elevstatDetaljer-${studentid}">
+                        <div class="d-flex justify-content-end align-items-center">
+                            <button class="show-details btn btn-secondary mr-2" type="button" data-toggle="collapse" data-userid="${studentid}" data-target="#elevstatDetaljer-${studentid}" aria-expanded="false" aria-controls="elevstatDetaljer-${studentid}" disabled>
+                                <i class="fa fa-spinner fa-spin"></i> Henter Data
+                            </button>
+                            <div class="btn-group">
+                                <button class="elevstat-download btn btn-secondary dropdown-toggle" type="button" data-toggle="dropdown" data-userid="${studentid}" data-user="${student}" disabled>
+                                    <i class="fa fa-download"></i>
+                                </button>
+                                <div class="dropdown-menu">
+                                    <a class="dropdown-item download-excel" href="#"><i class="fa fa-file-excel-o"></i> Excel</a>
+                                    <a class="dropdown-item download-csv" href="#"><i class="fa fa-file-text-o"></i> CSV</a>
+                                    <a class="dropdown-item download-json" href="#"><i class="fa fa-file-code-o"></i> JSON</a>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="collapse mt-3" id="elevstatDetaljer-${studentid}">
                             <p class="card-text">${student} har afleveret ${antalAfleverede} ud af ${antalOpgaver} og har derfor en afleveringsprocent på ${afleveringsprocent}%.</p>
                             <ul class="list-group">
                                 ${assignmentlist}
@@ -166,10 +189,138 @@ setTimeout(function () {
                 $(".show-details").text("Se Detaljer");
                 $(".fa-spinner").remove();
                 $('.spinner-border').remove();
+
+                // Tilføj console.log for debugging
+                console.log("Loading complete, setting up event handlers");
+
+                // Event handler for "Se Detaljer" knappen
                 $(".show-details").click(function () {
                     var $el = $(this);
                     $el.text($el.text() == "Se Detaljer" ? "Skjul Detaljer" : "Se Detaljer");
                 });
+
+                // Individual student download handlers
+                $(document).on('click', '.elevcard .dropdown-item', function(e) {
+                    e.preventDefault();
+                    console.log("Download clicked for individual student");
+                    
+                    const button = $(this).closest('.card-body').find('.elevstat-download');
+                    const userid = button.data('userid');
+                    const username = button.data('user');
+                    const data = JSON.parse(localStorage.getItem('elevstat-' + userid));
+                    
+                    if (!data) {
+                        alert('Ingen data fundet for denne elev');
+                        return;
+                    }
+
+                    if ($(this).hasClass('download-excel')) {
+                        console.log("Downloading Excel");
+                        var wb = XLSX.utils.book_new();
+                        wb.Props = {
+                            Title: "Elev Statistik",
+                            Subject: "Elevstatistik",
+                            Author: "Claus Hansen - clh@zbc.dk",
+                            CreatedDate: new Date()
+                        };
+                        wb.SheetNames.push("Afleveringer");
+                        var ws_data = [["Opgave", "Afleveret"]];
+                        data.forEach(item => {
+                            ws_data.push([item.titel, item.afleveret]);
+                        });
+                        var ws = XLSX.utils.aoa_to_sheet(ws_data);
+                        wb.Sheets["Afleveringer"] = ws;
+                        var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+                        saveAs(new Blob([s2ab(wbout)], { type: "application/octet-stream" }), 'afleveringer-' + username + '.xlsx');
+                    } 
+                    else if ($(this).hasClass('download-csv')) {
+                        console.log("Downloading CSV");
+                        let csvContent = "Opgave,Afleveret\n";
+                        data.forEach(row => {
+                            csvContent += `"${row.titel}","${row.afleveret}"\n`;
+                        });
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        saveAs(blob, 'afleveringer-' + username + '.csv');
+                    } 
+                    else if ($(this).hasClass('download-json')) {
+                        console.log("Downloading JSON");
+                        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                        saveAs(blob, 'afleveringer-' + username + '.json');
+                    }
+                });
+
+                // Download all handlers
+                $(document).on('click', '.download-all-excel', function(e) {
+                    e.preventDefault();
+                    console.log("Downloading all Excel");
+                    var wb = XLSX.utils.book_new();
+                    wb.Props = {
+                        Title: "Elev afleveringer Statistik",
+                        Subject: "Elevstatistik",
+                        Author: "Claus Hansen - clh@zbc.dk",
+                        CreatedDate: new Date()
+                    };
+                    
+                    $('.elevstat-download').each(function(index) {
+                        var userid = $(this).data('userid');
+                        var student = $(this).data('user');
+                        student = student.substring(0,30);
+                        var opgaveresult = JSON.parse(localStorage.getItem('elevstat-' + userid));
+                        
+                        if (opgaveresult) {
+                            var ws_data = [["Opgave", "Afleveret"]];
+                            opgaveresult.forEach(item => {
+                                ws_data.push([item.titel, item.afleveret]);
+                            });
+                            wb.SheetNames.push(student);
+                            var ws = XLSX.utils.aoa_to_sheet(ws_data);
+                            wb.Sheets[student] = ws;
+                        }
+                    });
+                    
+                    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+                    saveAs(new Blob([s2ab(wbout)], { type: "application/octet-stream" }), 'samlet-afleverings-statistik.xlsx');
+                });
+
+                $(document).on('click', '.download-all-csv', function(e) {
+                    e.preventDefault();
+                    console.log("Downloading all CSV");
+                    let allData = [];
+                    $('.elevstat-download').each(function() {
+                        const userid = $(this).data('userid');
+                        const username = $(this).data('user');
+                        const data = JSON.parse(localStorage.getItem('elevstat-' + userid));
+                        if (data) {
+                            data.forEach(item => {
+                                allData.push([username, item.titel, item.afleveret]);
+                            });
+                        }
+                    });
+                    
+                    let csvContent = "Elev,Opgave,Afleveret\n";
+                    allData.forEach(row => {
+                        csvContent += `"${row[0]}","${row[1]}","${row[2]}"\n`;
+                    });
+                    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                    saveAs(blob, 'samlet-afleverings-statistik.csv');
+                });
+
+                $(document).on('click', '.download-all-json', function(e) {
+                    e.preventDefault();
+                    console.log("Downloading all JSON");
+                    let jsonData = {};
+                    $('.elevstat-download').each(function() {
+                        const userid = $(this).data('userid');
+                        const username = $(this).data('user');
+                        const data = JSON.parse(localStorage.getItem('elevstat-' + userid));
+                        if (data) {
+                            jsonData[username] = data;
+                        }
+                    });
+                    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
+                    saveAs(blob, 'samlet-afleverings-statistik.json');
+                });
+
                 $('#elevstatCloseButton').click(function () {
                     if (confirm("Er du sikker på at du vil lukke statistikken?")) {
                         /*Cleanup LocalStorage */
@@ -192,67 +343,6 @@ setTimeout(function () {
                         $("link[href='https://www.gstatic.com/charts/51/css/util/util.css']").remove();
                     }
                 });
-                $(".elevstat-download").click(function () {
-                    var opgaveresult = JSON.parse(localStorage.getItem('elevstat-' + $(this).data('userid')));
-                    var student = $(this).data('user');
-                    console.log(opgaveresult);
-                    var csvArray = [];
-                    csvArray.push(["Opgave", "Afleveret"]);
-
-                    for (i = 0; opgaveresult.length > i; i++) {
-                        let titel = opgaveresult[i].titel;
-                        let afleveret = opgaveresult[i].afleveret;
-                        let resultArray = [titel, afleveret];
-                        csvArray.push(resultArray);
-                    }
-
-                    var wb = XLSX.utils.book_new();
-                    wb.Props = {
-                        Title: "Elev Statistik",
-                        Subject: "Elevstatistik",
-                        Author: "Claus Hansen - clh@zbc.dk",
-                        CreatedDate: new Date()
-                    };
-                    wb.SheetNames.push("Afleveringer");
-                    var ws_data = csvArray;
-                    var ws = XLSX.utils.aoa_to_sheet(ws_data);
-                    wb.Sheets["Afleveringer"] = ws;
-                    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
-
-                    saveAs(new Blob([s2ab(wbout)], { type: "application/octet-stream" }), 'afleveringer-' + student + '.xlsx');
-                });
-                $(".elevstat-download-all").click(function () {
-                    var wb = XLSX.utils.book_new();
-                    wb.Props = {
-                        Title: "Elev afleveringer Statistik",
-                        Subject: "Elevstatistik",
-                        Author: "Claus Hansen - clh@zbc.dk",
-                        CreatedDate: new Date()
-                    };
-                    $('.elevstat-download').each(function (index) {
-                        var opgaveresult = JSON.parse(localStorage.getItem('elevstat-' + $(this).data('userid')));
-                        var student = $(this).data('user');
-                        student = student.substring(0,30);
-                        //console.log(opgaveresult);
-                        var csvArray = [];
-                        csvArray.push(["Opgave", "Afleveret"]);
-
-                        for (i = 0; opgaveresult.length > i; i++) {
-                            let titel = opgaveresult[i].titel;
-                            let afleveret = opgaveresult[i].afleveret;
-                            let resultArray = [titel, afleveret];
-                            csvArray.push(resultArray);
-                        }
-                        wb.SheetNames.push(student);
-                        var ws_data = csvArray;
-                        var ws = XLSX.utils.aoa_to_sheet(ws_data);
-                        wb.Sheets[student] = ws;
-                    });
-                    var wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
-
-                    saveAs(new Blob([s2ab(wbout)], { type: "application/octet-stream" }), 'samlet-afleverings-statistik-.xlsx');
-                });
-
             }
 
         });
@@ -269,4 +359,19 @@ function s2ab(s) {
     for (var i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xFF;
     return buf;
 
+}
+
+function exportToCSV(data, filename) {
+    let csvContent = "Opgave,Afleveret\n";
+    data.forEach(row => {
+        csvContent += `"${row.titel}","${row.afleveret}"\n`;
+    });
+    
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    saveAs(blob, filename + '.csv');
+}
+
+function exportToJSON(data, filename) {
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    saveAs(blob, filename + '.json');
 }
