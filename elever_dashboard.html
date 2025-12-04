@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elev-overblik: Opgaver & Fravær</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1 { text-align: center; }
+    h2 { margin-top: 0; margin-bottom: 0; }
+    h3 { margin-top: 0; font-size: 1rem; color: #555; }
+    h4 { margin: 0 0 10px 0; text-align: center; font-size: 0.9em; color: #333; }
+    
+    .container { max-width: 1400px; margin: auto; } 
+    .card { background: white; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}    
+    
+    /* Upload sektion styles */
+    .upload-grid { display: flex; gap: 20px; flex-wrap: wrap; }
+    .upload-box { flex: 1; min-width: 300px; background: #fafafa; padding: 15px; border: 1px dashed #ccc; border-radius: 6px; }
+
+    /* Tabel Styles */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: middle; }
+    
+    /* Hovedrækken for en elev */
+    .student-row { cursor: pointer; background-color: #fff; transition: background 0.2s; }
+    .student-row:hover { background-color: #f0f7ff; }
+    
+    /* Detaljerækken (skjult som standard) */
+    .detail-row { display: none; background-color: #fafafa; }
+    .detail-cell { padding: 20px !important; border-bottom: 2px solid #ddd; }
+    
+    /* Grafer container */
+    .subjects-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px dashed #ccc;
+    }
+
+    .subject-chart-wrapper {
+      width: 160px;
+      text-align: center;
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    
+    .chart-box { height: 120px; width: 100%; }
+
+    /* Den indre tabel */
+    .inner-table { width: 100%; margin: 0 auto; background: #fff; border: 1px solid #eee; }
+    .inner-table th { background-color: #eee; font-size: 0.9em; }
+    .inner-table td { font-size: 0.9em; border-bottom: 1px solid #eee; }
+
+    /* Status og Badges */
+    #statusArea { margin-top: 10px; font-size: 0.9rem; }
+    .status-msg { display: block; margin-bottom: 4px; }
+    .status-ok { color: #006400; }
+    .status-error { color: #b00020; }
+    
+    .controls { margin-bottom: 10px; }
+    
+    /* Aflevering farver (Højt er godt) */
+    .pct-low { color: #b00020; font-weight: bold; }
+    .pct-mid { color: #e67e22; font-weight: bold; }
+    .pct-high { color: #2e7d32; font-weight: bold; }
+
+    /* Fravær farver (Lavt er godt) */
+    /* < 10% */
+    .abs-good { color: #2e7d32; font-weight: bold; } 
+    /* 10% - 25% */
+    .abs-warn { color: #f57f17; font-weight: bold; } 
+    /* > 25% */
+    .abs-bad { color: #b00020; font-weight: bold; }  
+    
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+    .badge-ja { background-color: #c8e6c9; color: #1b5e20; }
+    .badge-nej { background-color: #ffcdd2; color: #b71c1c; }
+
+    /* Accordion styles */
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      padding-bottom: 10px;
+    }
+    .accordion-header:hover { opacity: 0.7; }
+    .arrow { font-size: 0.8em; margin-left: 10px; }
+
+    #summaryContent { border-top: 1px solid #eee; padding-top: 10px; }
+    #chartContent { height: 400px; width: 100%; border-top: 1px solid #eee; padding-top: 10px; }
+    #chartContent canvas { width: 100% !important; height: 100% !important; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard: Elev-overblik</h1>
+  <div class="container">
+    
+    <!-- Upload Section -->
+    <div class="card">
+      <h2>Datakilder</h2>
+      <div class="upload-grid">
+        <div class="upload-box">
+          <h3>1. Opgaver (JSON)</h3>
+          <p style="font-size:0.8rem; color:#666;">Bookmarklet fil med opgaver.</p>
+          <input type="file" id="fileAssignments" accept="application/json" />
+        </div>
+        <div class="upload-box">
+          <h3>2. Fravær (JSON)</h3>
+          <p style="font-size:0.8rem; color:#666;">Fil med Lectio fraværsdata.</p>
+          <input type="file" id="fileAbsence" accept="application/json" />
+        </div>
+      </div>
+      <div id="statusArea"></div>
+    </div>
+
+    <!-- Accordion Card: Oversigt -->
+    <div class="card" id="summaryCard" style="display:none;">
+      <div class="accordion-header" onclick="toggleSection('summaryContent', 'summaryArrow')">
+        <h2>Oversigt</h2>
+        <span id="summaryArrow" class="arrow">▲</span>
+      </div>
+      <div id="summaryContent">
+        <p><strong>Antal elever:</strong> <span id="countStudents"></span></p>
+        <p><strong>Gennemsnitlig afleveringsprocent:</strong> <span id="avgProgress"></span>%</p>
+        <p id="avgAbsenceWrapper" style="display:none;"><strong>Gennemsnitligt fravær (år):</strong> <span id="avgAbsence"></span>%</p>
+      </div>
+    </div>
+
+    <!-- Accordion Card: Chart -->
+    <div class="card" id="chartCard" style="display:none;">
+      <div class="accordion-header" onclick="toggleSection('chartContent', 'chartArrow')">
+        <h2>Afleveringsprocent pr. elev</h2>
+        <span id="chartArrow" class="arrow">▲</span>
+      </div>
+      <div id="chartContent">
+        <canvas id="progressChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card" id="tableCard" style="display:none;">
+      <h2>Elever</h2>
+      <p style="font-size:0.9em; color:#666;">Klik på en elev for at se detaljer.</p>
+      <div class="controls">
+        <button type="button" onclick="setSort('worst_assign')">Sortér: Færrest afleveringer</button>
+        <button type="button" onclick="setSort('best_assign')">Sortér: Flest afleveringer</button>
+        <button type="button" onclick="setSort('worst_absence')">Sortér: Højest fravær</button>
+        <button type="button" onclick="setSort('name')">Sortér: Navn (A-Å)</button>
+      </div>
+      <table id="dataTable"></table>
+    </div>
+  </div>
+
+<script>
+  // Globale variabler
+  let rawAssignmentData = null;
+  let rawAbsenceData = null;
+  let studentsGlobal = []; 
+  let currentSort = 'worst_assign';
+  let chartInstance = null;
+
+  // --- Event Listeners ---
+  document.getElementById('fileAssignments').addEventListener('change', (e) => handleFileUpload(e, 'assignments'));
+  document.getElementById('fileAbsence').addEventListener('change', (e) => handleFileUpload(e, 'absence'));
+
+  async function handleFileUpload(event, type) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      if (type === 'assignments') {
+        rawAssignmentData = json;
+        addStatus(`Opgaver indlæst: "${file.name}"`, 'ok');
+      } else {
+        rawAbsenceData = json;
+        addStatus(`Fravær indlæst: "${file.name}"`, 'ok');
+      }
+      processAndRenderData();
+
+    } catch (e) {
+      console.error(e);
+      addStatus(`Fejl ved indlæsning af ${type}: Filen er ikke gyldig JSON`, 'error');
+    }
+  }
+
+  // --- Data Processing ---
+  function processAndRenderData() {
+    if (!rawAssignmentData && !rawAbsenceData) return;
+
+    // Find unikke elevnavne
+    const allNames = new Set();
+    
+    if (rawAssignmentData && !Array.isArray(rawAssignmentData)) {
+      Object.keys(rawAssignmentData).forEach(n => allNames.add(n));
+    }
+
+    if (rawAbsenceData && Array.isArray(rawAbsenceData.students)) {
+      rawAbsenceData.students.forEach(s => allNames.add(s.name));
+    }
+
+    const students = [];
+
+    // Byg elev objekter
+    allNames.forEach(name => {
+      const studentObj = {
+        name: name,
+        total: 0, submitted: 0, missing: 0, progress: 0,
+        assignments: [], hasAssignments: false,
+        periodAbsence: null, yearAbsence: null, hasAbsence: false
+      };
+
+      // Fyld opgavedata på
+      if (rawAssignmentData && rawAssignmentData[name]) {
+        const list = rawAssignmentData[name];
+        if (Array.isArray(list)) {
+          studentObj.hasAssignments = true;
+          studentObj.assignments = list;
+          studentObj.total = list.length;
+          studentObj.submitted = list.filter(a => (a.afleveret || '').toLowerCase() === 'ja').length;
+          studentObj.missing = studentObj.total - studentObj.submitted;
+          studentObj.progress = studentObj.total > 0 ? Math.round((studentObj.submitted / studentObj.total) * 100) : 0;
+        }
+      }
+
+      // Fyld fraværsdata på
+      if (rawAbsenceData && rawAbsenceData.students) {
+        const absData = rawAbsenceData.students.find(s => s.name.trim() === name.trim());
+        if (absData) {
+          studentObj.hasAbsence = true;
+          const parseLectioPct = (str) => {
+            if (!str) return 0;
+            return parseFloat(str.replace('%', '').replace(',', '.'));
+          };
+
+          if (absData.period) {
+            studentObj.periodAbsence = {
+              pctString: absData.period.pct,
+              val: parseLectioPct(absData.period.pct)
+            };
+          }
+          if (absData.year) {
+            studentObj.yearAbsence = {
+              pctString: absData.year.pct,
+              val: parseLectioPct(absData.year.pct)
+            };
+          }
+        }
+      }
+
+      students.push(studentObj);
+    });
+
+    studentsGlobal = students;
+    renderDashboard();
+  }
+
+  // --- Rendering ---
+  function renderDashboard() {
+    if (studentsGlobal.length === 0) return;
+
+    // Oversigt
+    const count = studentsGlobal.length;
+    const studentsWithTasks = studentsGlobal.filter(s => s.hasAssignments);
+    let avgProg = 0;
+    if (studentsWithTasks.length > 0) {
+      const totalProg = studentsWithTasks.reduce((sum, s) => sum + s.progress, 0);
+      avgProg = (totalProg / studentsWithTasks.length).toFixed(1);
+    }
+    
+    const studentsWithAbsence = studentsGlobal.filter(s => s.hasAbsence);
+    let avgAbs = 0;
+    if (studentsWithAbsence.length > 0) {
+      const totalAbs = studentsWithAbsence.reduce((sum, s) => sum + (s.yearAbsence ? s.yearAbsence.val : 0), 0);
+      avgAbs = (totalAbs / studentsWithAbsence.length).toFixed(1);
+      
+      document.getElementById('avgAbsenceWrapper').style.display = 'block';
+      document.getElementById('avgAbsence').textContent = avgAbs.replace('.', ',');
+    } else {
+      document.getElementById('avgAbsenceWrapper').style.display = 'none';
+    }
+
+    document.getElementById('countStudents').textContent = count;
+    document.getElementById('avgProgress').textContent = avgProg;
+    document.getElementById('summaryCard').style.display = 'block';
+
+    applySortAndRender();
+  }
+
+  function applySortAndRender() {
+    let students = [...studentsGlobal];
+
+    students.sort((a, b) => {
+      if (currentSort === 'name') return a.name.localeCompare(b.name, 'da');
+      else if (currentSort === 'worst_assign') return (a.progress || 0) - (b.progress || 0);
+      else if (currentSort === 'best_assign') return (b.progress || 0) - (a.progress || 0);
+      else if (currentSort === 'worst_absence') {
+        const aVal = a.yearAbsence ? a.yearAbsence.val : -1;
+        const bVal = b.yearAbsence ? b.yearAbsence.val : -1;
+        return bVal - aVal;
+      }
+      return 0;
+    });
+
+    renderMainChart(students);
+    renderTable(students);
+  }
+
+  function renderMainChart(students) {
+    const hasAnyTasks = students.some(s => s.hasAssignments);
+    if (!hasAnyTasks) {
+      document.getElementById('chartCard').style.display = 'none';
+      return;
+    }
+
+    document.getElementById('chartCard').style.display = 'block';
+    const chartContent = document.getElementById('chartContent');
+    if(chartContent.style.display === '') chartContent.style.display = 'block'; 
+
+    const labels = students.map(s => s.name);
+    const values = students.map(s => s.progress || 0);
+    const colors = values.map(v => {
+      if (v < 50) return '#ef5350';
+      if (v < 80) return '#ffb74d';
+      return '#66bb6a';
+    });
+
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Afleveringsprocent',
+          data: values,
+          backgroundColor: colors
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const s = students[context.dataIndex];
+                return `${s.name}: ${s.progress}% (${s.submitted}/${s.total})`;
+              }
+            }
+          }
+        },
+        scales: { y: { beginAtZero: true, max: 100 } }
+      }
+    });
+  }
+
+  function renderTable(students) {
+    const table = document.getElementById('dataTable');
+    const showAbsenceCols = studentsGlobal.some(s => s.hasAbsence);
+    const showAssignCols = studentsGlobal.some(s => s.hasAssignments);
+
+    let headerHtml = '<thead><tr><th>Elev</th>';
+    if (showAssignCols) headerHtml += '<th>Afleveret / total</th><th>% afleveret</th><th>Mangler</th>';
+    if (showAbsenceCols) headerHtml += '<th>Fravær (Per.)</th><th>Fravær (År)</th>';
+    headerHtml += '</tr></thead><tbody>';
+
+    let bodyHtml = '';
+
+    students.forEach((s, index) => {
+      const rowId = 'detail-row-' + index;
+      const subjectsContainerId = 'subjects-container-' + index;
+      
+      let cellsHtml = `<td><strong>${escapeHtml(s.name)}</strong> <span style="font-size:0.8em; color:#999;">▼</span></td>`;
+      
+      if (showAssignCols) {
+        if (s.hasAssignments) {
+          const cls = getPctClass(s.progress);
+          cellsHtml += `<td>${s.submitted}/${s.total}</td><td class="${cls}">${s.progress}%</td><td>${s.missing}</td>`;
+        } else {
+          cellsHtml += `<td colspan="3" style="color:#999;">-</td>`;
+        }
+      }
+
+      if (showAbsenceCols) {
+        if (s.hasAbsence) {
+          const pAbs = s.periodAbsence;
+          const yAbs = s.yearAbsence;
+          cellsHtml += `
+            <td class="${getAbsenceClass(pAbs ? pAbs.val : 0)}">${pAbs ? pAbs.pctString : '-'}</td>
+            <td class="${getAbsenceClass(yAbs ? yAbs.val : 0)}">${yAbs ? yAbs.pctString : '-'}</td>
+          `;
+        } else {
+          cellsHtml += `<td colspan="2" style="color:#999;">-</td>`;
+        }
+      }
+
+      bodyHtml += `<tr class="student-row" onclick="toggleStudentRow(${index})">${cellsHtml}</tr>`;
+
+      let detailContent = '';
+      if (s.hasAssignments) {
+        detailContent = `<div id="${subjectsContainerId}" class="subjects-container"></div>${generateInnerTable(s.assignments)}`;
+      } else {
+        detailContent = `<div style="padding:10px; color:#666;">Ingen opgavedata.</div>`;
+      }
+
+      bodyHtml += `
+        <tr id="${rowId}" class="detail-row" data-rendered="false">
+          <td colspan="${1 + (showAssignCols?3:0) + (showAbsenceCols?2:0)}" class="detail-cell">
+            ${detailContent}
+          </td>
+        </tr>
+      `;
+    });
+
+    bodyHtml += '</tbody>';
+    table.innerHTML = headerHtml + bodyHtml;
+    document.getElementById('tableCard').style.display = 'block';
+  }
+
+  function generateInnerTable(assignments) {
+    if (!assignments || assignments.length === 0) return '';
+    const rows = assignments.map(a => {
+      const isJa = (a.afleveret || '').toLowerCase() === 'ja';
+      const badgeClass = isJa ? 'badge badge-ja' : 'badge badge-nej';
+      return `<tr><td>${escapeHtml(a.emne || '')}</td><td>${escapeHtml(a.titel || '')}</td><td><span class="${badgeClass}">${isJa?'Ja':'Nej'}</span></td></tr>`;
+    }).join('');
+    return `<table class="inner-table"><thead><tr><th>Emne</th><th>Opgave</th><th>Afleveret</th></tr></thead><tbody>${rows}</tbody></table>`;
+  }
+
+  function toggleStudentRow(index) {
+    const row = document.getElementById('detail-row-' + index);
+    if (!row) return;
+    if (row.style.display === 'table-row') {
+      row.style.display = 'none';
+    } else {
+      row.style.display = 'table-row';
+      if (row.getAttribute('data-rendered') === 'false') {
+        renderSubjectCharts(index);
+        row.setAttribute('data-rendered', 'true');
+      }
+    }
+  }
+
+  function renderSubjectCharts(index) {
+    let sorted = [...studentsGlobal];
+    sorted.sort((a, b) => {
+      if (currentSort === 'name') return a.name.localeCompare(b.name, 'da');
+      if (currentSort === 'worst_assign') return (a.progress || 0) - (b.progress || 0);
+      if (currentSort === 'best_assign') return (b.progress || 0) - (a.progress || 0);
+      if (currentSort === 'worst_absence') return (b.yearAbsence ? b.yearAbsence.val : -1) - (a.yearAbsence ? a.yearAbsence.val : -1);
+      return 0;
+    });
+
+    const student = sorted[index];
+    if (!student || !student.hasAssignments) return;
+
+    const subjects = {};
+    student.assignments.forEach(a => {
+      const emne = a.emne ? a.emne.trim() : 'Uden emne';
+      if (!subjects[emne]) subjects[emne] = { total: 0, submitted: 0, missing: 0 };
+      subjects[emne].total++;
+      if ((a.afleveret || '').toLowerCase() === 'ja') subjects[emne].submitted++;
+      else subjects[emne].missing++;
+    });
+
+    const container = document.getElementById('subjects-container-' + index);
+    if (!container) return;
+    if (Object.keys(subjects).length === 0) {
+      container.innerHTML = '<p style="color:#777;">Ingen data til grafer</p>';
+      return;
+    }
+
+    Object.keys(subjects).forEach((emne, i) => {
+      const data = subjects[emne];
+      const canvasId = `chart-${index}-${i}`;
+      
+      const wrapper = document.createElement('div');
+      wrapper.className = 'subject-chart-wrapper';
+      wrapper.innerHTML = `
+        <h4 title="${escapeHtml(emne)}">${escapeHtml(truncateString(emne, 18))}</h4>
+        <div class="chart-box"><canvas id="${canvasId}"></canvas></div>
+        <div style="font-size:0.75rem; margin-top:5px; color:#666;">${data.submitted}/${data.total}</div>
+      `;
+      container.appendChild(wrapper);
+
+      new Chart(document.getElementById(canvasId).getContext('2d'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Afleveret', 'Mangler'],
+          datasets: [{
+            data: [data.submitted, data.missing],
+            backgroundColor: ['#66bb6a', '#ef5350'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false }, tooltip: { enabled: true } }
+        }
+      });
+    });
+  }
+
+  function addStatus(msg, type) {
+    const el = document.getElementById('statusArea');
+    const div = document.createElement('div');
+    div.className = `status-msg status-${type}`;
+    div.textContent = msg;
+    el.appendChild(div);
+  }
+
+  function toggleSection(contentId, arrowId) {
+    const content = document.getElementById(contentId);
+    const arrow = document.getElementById(arrowId);
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      arrow.textContent = '▲'; 
+    } else {
+      content.style.display = 'none';
+      arrow.textContent = '▼'; 
+    }
+  }
+
+  function setSort(type) {
+    currentSort = type;
+    applySortAndRender();
+  }
+
+  function getPctClass(pct) {
+    if (pct < 50) return 'pct-low';
+    if (pct < 80) return 'pct-mid';
+    return 'pct-high';
+  }
+
+  // OPDATERET LOGIK HER
+  function getAbsenceClass(val) {
+    if (val < 10) return 'abs-good';  // Under 10%
+    if (val <= 25) return 'abs-warn'; // 10% - 25%
+    return 'abs-bad';                 // Over 25%
+  }
+
+  function truncateString(str, num) {
+    if (str.length <= num) return str;
+    return str.slice(0, num) + '...';
+  }
+
+  function escapeHtml(text) {
+    return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+</script>
+</body>
+</html>
