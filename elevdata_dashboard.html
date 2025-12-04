@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Elev-afleveringer Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+    h1 { text-align: center; }
+    h2 { margin-top: 0; margin-bottom: 0; }
+    h4 { margin: 0 0 10px 0; text-align: center; font-size: 0.9em; color: #333; }
+    
+    .container { max-width: 1200px; margin: auto; }
+    .card { background: white; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}    
+    
+    /* Tabel Styles */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; }
+    
+    /* Hovedrækken for en elev */
+    .student-row { cursor: pointer; background-color: #fff; }
+    .student-row:hover { background-color: #f9f9f9; }
+    
+    /* Detaljerækken (skjult som standard) */
+    .detail-row { display: none; background-color: #fafafa; }
+    .detail-cell { padding: 20px !important; border-bottom: 2px solid #ddd; }
+    
+    /* Container til alle emne-graferne (Flexbox for horizontal layout) */
+    .subjects-container {
+      display: flex;
+      flex-wrap: wrap; /* Tillad ombrydning hvis mange emner */
+      gap: 20px;
+      justify-content: center; /* Centreret på siden */
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 1px dashed #ccc;
+    }
+
+    /* Enkelt emne-graf kort */
+    .subject-chart-wrapper {
+      width: 160px; /* Fast bredde på hvert lille diagram */
+      text-align: center;
+      background: #fff;
+      padding: 10px;
+      border-radius: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+    }
+    
+    .chart-box {
+      height: 120px; /* Højde på selve canvas området */
+      width: 100%;
+    }
+
+    /* Den indre tabel med opgaver */
+    .inner-table { width: 100%; margin: 0 auto; background: #fff; border: 1px solid #eee; }
+    .inner-table th { background-color: #eee; font-size: 0.9em; }
+    .inner-table td { font-size: 0.9em; border-bottom: 1px solid #eee; }
+
+    #status { margin-top: 10px; font-size: 0.9rem; color: #555; }
+    .status-error { color: #b00020; }
+    .status-ok { color: #006400; }
+    button { margin-right: 8px; margin-bottom: 6px; padding: 6px 10px; cursor: pointer; }
+    .controls { margin-bottom: 10px; }
+    
+    .pct-low { color: #b00020; font-weight: bold; }
+    .pct-mid { color: #e67e22; font-weight: bold; }
+    .pct-high { color: #2e7d32; font-weight: bold; }
+    
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
+    .badge-ja { background-color: #c8e6c9; color: #1b5e20; }
+    .badge-nej { background-color: #ffcdd2; color: #b71c1c; }
+
+    /* Accordion styles */
+    .accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      user-select: none;
+      padding-bottom: 10px;
+    }
+    .accordion-header:hover { opacity: 0.7; }
+    .arrow { font-size: 0.8em; margin-left: 10px; }
+
+    #summaryContent { border-top: 1px solid #eee; padding-top: 10px; }
+
+    /* Chart styles */
+    #chartContent {
+      height: 400px; 
+      width: 100%;
+      border-top: 1px solid #eee;
+      padding-top: 10px;
+    }
+    #chartContent canvas { width: 100% !important; height: 100% !important; }
+  </style>
+</head>
+<body>
+  <h1>Dashboard: Elev-afleveringer</h1>
+  <div class="container">
+    <div class="card">
+      <h2>Upload JSON fil</h2>
+      <p>Upload den fil dit bookmarklet har lavet.</p>
+      <input type="file" id="fileInput" accept="application/json" />
+      <div id="status"></div>
+    </div>
+
+    <!-- Accordion Card: Oversigt -->
+    <div class="card" id="summaryCard" style="display:none;">
+      <div class="accordion-header" onclick="toggleSection('summaryContent', 'summaryArrow')">
+        <h2>Oversigt</h2>
+        <span id="summaryArrow" class="arrow">▲</span>
+      </div>
+      <div id="summaryContent">
+        <p><strong>Antal elever:</strong> <span id="countStudents"></span></p>
+        <p><strong>Gennemsnitlig afleveringsprocent:</strong> <span id="avgProgress"></span>%</p>
+      </div>
+    </div>
+
+    <!-- Accordion Card: Chart -->
+    <div class="card" id="chartCard" style="display:none;">
+      <div class="accordion-header" onclick="toggleSection('chartContent', 'chartArrow')">
+        <h2>Afleveringsprocent pr. elev</h2>
+        <span id="chartArrow" class="arrow">▲</span>
+      </div>
+      <div id="chartContent">
+        <canvas id="progressChart"></canvas>
+      </div>
+    </div>
+
+    <div class="card" id="tableCard" style="display:none;">
+      <h2>Elever</h2>
+      <p style="font-size:0.9em; color:#666;">Klik på en elev for at se statistik pr. emne og opgaveliste.</p>
+      <div class="controls">
+        <button type="button" onclick="setSort('worst')">Sortér: færrest afleveringer</button>
+        <button type="button" onclick="setSort('best')">Sortér: flest afleveringer</button>
+        <button type="button" onclick="setSort('name')">Sortér: navn (A-Å)</button>
+      </div>
+      <table id="dataTable"></table>
+    </div>
+  </div>
+
+<script>
+  const fileInput = document.getElementById('fileInput');
+  const statusEl = document.getElementById('status');
+  let chartInstance = null;
+  let studentsGlobal = []; 
+  let currentSort = 'worst';
+
+  // --- Accordion toggle funktion ---
+  function toggleSection(contentId, arrowId) {
+    const content = document.getElementById(contentId);
+    const arrow = document.getElementById(arrowId);
+    
+    if (content.style.display === 'none') {
+      content.style.display = 'block';
+      arrow.textContent = '▲'; 
+    } else {
+      content.style.display = 'none';
+      arrow.textContent = '▼'; 
+    }
+  }
+
+  // --- Fil upload og parsing ---
+  fileInput.addEventListener('change', async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const text = await file.text();
+    let data;
+
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      showStatus('Filen er ikke gyldig JSON', true);
+      return;
+    }
+
+    showStatus('JSON indlæst fra fil: "' + (file.name || '') + '"', false);
+    renderDashboardFromAssignments(data);
+  });
+
+  function normalizeStudentsFromAssignments(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) return [];
+
+    const students = Object.entries(data).map(([name, assignments]) => {
+      const list = Array.isArray(assignments) ? assignments : [];
+      const total = list.length;
+      const submitted = list.filter(a => (a.afleveret || '').toLowerCase() === 'ja').length;
+      const missing = total - submitted;
+      const progress = total > 0 ? Math.round((submitted / total) * 100) : 0;
+
+      return {
+        name,
+        total,
+        submitted,
+        missing,
+        progress,
+        assignments: list
+      };
+    });
+
+    return students;
+  }
+
+  function renderDashboardFromAssignments(data) {
+    const students = normalizeStudentsFromAssignments(data);
+
+    if (!Array.isArray(students) || students.length === 0) {
+      showStatus('Ingen elever kunne læses ud fra JSON-strukturen.', true);
+      document.getElementById('summaryCard').style.display = 'none';
+      document.getElementById('chartCard').style.display = 'none';
+      document.getElementById('tableCard').style.display = 'none';
+      return;
+    }
+
+    studentsGlobal = students;
+
+    // --- Summary ---
+    const count = students.length;
+    const totalProgress = students.reduce((sum, s) => sum + (Number(s.progress) || 0), 0);
+    const avg = count > 0 ? (totalProgress / count).toFixed(1) : '0.0';
+
+    document.getElementById('countStudents').textContent = count;
+    document.getElementById('avgProgress').textContent = avg;
+    
+    document.getElementById('summaryCard').style.display = 'block';
+    
+    applySortAndRender();
+  }
+
+  function applySortAndRender() {
+    if (!Array.isArray(studentsGlobal)) return;
+    
+    let students = [...studentsGlobal];
+
+    if (currentSort === 'worst') {
+      students.sort((a, b) => (a.progress || 0) - (b.progress || 0));
+    } else if (currentSort === 'best') {
+      students.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+    } else if (currentSort === 'name') {
+      students.sort((a, b) => a.name.localeCompare(b.name, 'da')); 
+    }
+
+    renderChart(students);
+    renderTable(students);
+  }
+
+  function renderChart(students) {
+    const labels = students.map(s => s.name);
+    const values = students.map(s => s.progress || 0);
+    const colors = values.map(v => {
+      if (v < 50) return '#ef5350';
+      if (v < 80) return '#ffb74d';
+      return '#66bb6a';
+    });
+
+    const ctx = document.getElementById('progressChart').getContext('2d');
+    if (chartInstance) chartInstance.destroy();
+
+    chartInstance = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels,
+        datasets: [{
+          label: 'Afleveringsprocent',
+          data: values,
+          backgroundColor: colors
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          tooltip: {
+            callbacks: {
+              label: function(context) {
+                const idx = context.dataIndex;
+                const s = students[idx];
+                return `${s.name}: ${s.progress}% (${s.submitted}/${s.total} afleveret)`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            max: 100
+          }
+        }
+      }
+    });
+
+    document.getElementById('chartCard').style.display = 'block';
+    document.getElementById('chartContent').style.display = 'block';
+    document.getElementById('chartArrow').textContent = '▲';
+  }
+
+  // --- TABEL RENDER MED DETALJE-RÆKKER ---
+  function renderTable(students) {
+    const table = document.getElementById('dataTable');
+
+    let tableHtml = `
+      <thead>
+        <tr>
+          <th>Elev (klik for at folde ud)</th>
+          <th>Afleveret / total</th>
+          <th>% afleveret</th>
+          <th>Mangler</th>
+        </tr>
+      </thead>
+      <tbody>
+    `;
+
+    students.forEach((s, index) => {
+      const cls = getPctClass(s.progress || 0);
+      const rowId = 'detail-row-' + index;
+      const subjectsContainerId = 'subjects-container-' + index;
+      
+      // Hovedrække (klikbar)
+      tableHtml += `
+        <tr class="student-row" onclick="toggleStudentRow(${index})">
+          <td><strong>${escapeHtml(s.name)}</strong> <span style="font-size:0.8em; color:#999; margin-left:5px;">▼</span></td>
+          <td>${s.submitted}/${s.total}</td>
+          <td class="${cls}">${s.progress || 0}%</td>
+          <td>${s.missing}</td>
+        </tr>
+      `;
+
+      // Detaljerække (skjult)
+      // Vi laver en tom container div med ID, hvor vi senere injecter graferne
+      tableHtml += `
+        <tr id="${rowId}" class="detail-row" data-rendered="false">
+          <td colspan="4" class="detail-cell">
+            
+            <!-- Her kommer emne-graferne -->
+            <div id="${subjectsContainerId}" class="subjects-container"></div>
+
+            ${generateInnerTable(s.assignments)}
+          </td>
+        </tr>
+      `;
+    });
+
+    tableHtml += `</tbody>`;
+    table.innerHTML = tableHtml;
+
+    document.getElementById('tableCard').style.display = 'block';
+  }
+
+  function generateInnerTable(assignments) {
+    if (!assignments || assignments.length === 0) return '<div style="text-align:center; padding:10px;">Ingen opgaver fundet.</div>';
+
+    const rows = assignments.map(a => {
+      const isJa = (a.afleveret || '').toLowerCase() === 'ja';
+      const badgeClass = isJa ? 'badge badge-ja' : 'badge badge-nej';
+      const aflevText = isJa ? 'Ja' : 'Nej';
+      return `
+        <tr>
+          <td>${escapeHtml(a.emne || '')}</td>
+          <td>${escapeHtml(a.titel || '')}</td>
+          <td><span class="${badgeClass}">${aflevText}</span></td>
+        </tr>
+      `;
+    }).join('');
+
+    return `
+      <table class="inner-table">
+        <thead>
+          <tr>
+            <th>Emne</th>
+            <th>Opgave</th>
+            <th>Afleveret</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows}
+        </tbody>
+      </table>
+    `;
+  }
+
+  // --- Håndtering af detalje visning og grafer ---
+  function toggleStudentRow(index) {
+    const rowId = 'detail-row-' + index;
+    const row = document.getElementById(rowId);
+    
+    if (row.style.display === 'table-row') {
+      row.style.display = 'none';
+    } else {
+      row.style.display = 'table-row';
+      
+      // Tjek om vi allerede har tegnet graferne for denne elev
+      if (row.getAttribute('data-rendered') === 'false') {
+        renderSubjectCharts(index);
+        row.setAttribute('data-rendered', 'true');
+      }
+    }
+  }
+
+  function renderSubjectCharts(index) {
+    // 1. Find den korrekte elev baseret på nuværende sortering
+    let currentStudents = [...studentsGlobal];
+    if (currentSort === 'worst') {
+      currentStudents.sort((a, b) => (a.progress || 0) - (b.progress || 0));
+    } else if (currentSort === 'best') {
+      currentStudents.sort((a, b) => (b.progress || 0) - (a.progress || 0));
+    } else if (currentSort === 'name') {
+      currentStudents.sort((a, b) => a.name.localeCompare(b.name, 'da')); 
+    }
+    
+    const student = currentStudents[index];
+    if (!student) return;
+
+    // 2. Gruppér opgaverne pr. emne
+    const subjects = {};
+    student.assignments.forEach(a => {
+      const emne = a.emne ? a.emne.trim() : 'Uden emne';
+      if (!subjects[emne]) {
+        subjects[emne] = { total: 0, submitted: 0, missing: 0 };
+      }
+      subjects[emne].total++;
+      if ((a.afleveret || '').toLowerCase() === 'ja') {
+        subjects[emne].submitted++;
+      } else {
+        subjects[emne].missing++;
+      }
+    });
+
+    // 3. Generer HTML for hvert emne
+    const container = document.getElementById('subjects-container-' + index);
+    if (!container) return;
+
+    // Hvis ingen opgaver
+    if (Object.keys(subjects).length === 0) {
+      container.innerHTML = '<p style="color:#777; font-style:italic;">Ingen data til grafer</p>';
+      return;
+    }
+
+    Object.keys(subjects).forEach((emne, i) => {
+      const data = subjects[emne];
+      // Unikt ID til hver canvas: studentIndex - subjectIndex
+      const canvasId = `chart-${index}-${i}`;
+
+      // Opret HTML elementer
+      const wrapper = document.createElement('div');
+      wrapper.className = 'subject-chart-wrapper';
+      
+      wrapper.innerHTML = `
+        <h4 title="${escapeHtml(emne)}">${escapeHtml(truncateString(emne, 20))}</h4>
+        <div class="chart-box">
+          <canvas id="${canvasId}"></canvas>
+        </div>
+        <div style="font-size:0.75rem; margin-top:5px; color:#666;">
+          ${data.submitted}/${data.total}
+        </div>
+      `;
+      
+      container.appendChild(wrapper);
+
+      // 4. Tegn grafen
+      const ctx = document.getElementById(canvasId).getContext('2d');
+      new Chart(ctx, {
+        type: 'doughnut', // Doughnut ser ofte pænere ud i små størrelser
+        data: {
+          labels: ['Afleveret', 'Mangler'],
+          datasets: [{
+            data: [data.submitted, data.missing],
+            backgroundColor: ['#66bb6a', '#ef5350'],
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false }, // Skjul legend for at spare plads
+            tooltip: {
+              callbacks: {
+                label: function(context) {
+                  return `${context.label}: ${context.raw}`;
+                }
+              }
+            }
+          }
+        }
+      });
+    });
+  }
+
+  function truncateString(str, num) {
+    if (str.length <= num) return str;
+    return str.slice(0, num) + '...';
+  }
+
+  function getPctClass(pct) {
+    if (pct < 50) return 'pct-low';
+    if (pct < 80) return 'pct-mid';
+    return 'pct-high';
+  }
+
+  function setSort(type) {
+    currentSort = type;
+    applySortAndRender();
+  }
+
+  function showStatus(message, isError) {
+    if (!statusEl) return;
+    statusEl.textContent = message;
+    statusEl.className = isError ? 'status-error' : 'status-ok';
+  }
+
+  function escapeHtml(text) {
+    return String(text)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+</script>
+</body>
+</html>
