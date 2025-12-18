@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Elev-overblik: Opgaver & Fravær</title>
+  <title>Elev-overblik: Opgaver, Fravær & Karakterer</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
@@ -12,17 +12,42 @@
     h3 { margin-top: 0; font-size: 1rem; color: #555; }
     h4 { margin: 0 0 10px 0; text-align: center; font-size: 0.9em; color: #333; }
     
-    .container { max-width: 1400px; margin: auto; } 
+    .container { max-width: 1600px; margin: auto; } 
     .card { background: white; padding: 20px; margin-top: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1);}    
     
     /* Upload sektion styles */
     .upload-grid { display: flex; gap: 20px; flex-wrap: wrap; }
-    .upload-box { flex: 1; min-width: 300px; background: #fafafa; padding: 15px; border: 1px dashed #ccc; border-radius: 6px; }
+    .upload-box { flex: 1; min-width: 250px; background: #fafafa; padding: 15px; border: 1px dashed #ccc; border-radius: 6px; }
+
+    /* Admin sektion */
+    .admin-section { margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; display:flex; gap:10px; flex-wrap: wrap;}
+    
+    .btn { border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; transition: background 0.2s; color: white; font-size: 0.9rem; }
+    .btn-reset { background-color: #d32f2f; }
+    .btn-reset:hover { background-color: #b71c1c; }
+    
+    .btn-export { background-color: #1976d2; }
+    .btn-export:hover { background-color: #1565c0; }
 
     /* Tabel Styles */
-    table { width: 100%; border-collapse: collapse; }
-    th, td { padding: 10px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: middle; }
+    table { width: 100%; border-collapse: collapse; table-layout: auto; }
+    th, td { padding: 8px; border-bottom: 1px solid #ddd; text-align: left; vertical-align: middle; font-size: 0.9rem; }
     
+    /* Input felter til karakterer */
+    .grade-input {
+      width: 40px;
+      padding: 4px;
+      text-align: center;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 0.9rem;
+    }
+    .grade-input:focus {
+      border-color: #2196F3;
+      outline: none;
+      background-color: #e3f2fd;
+    }
+
     /* Hovedrækken for en elev */
     .student-row { cursor: pointer; background-color: #fff; transition: background 0.2s; }
     .student-row:hover { background-color: #f0f7ff; }
@@ -63,21 +88,18 @@
     .status-msg { display: block; margin-bottom: 4px; }
     .status-ok { color: #006400; }
     .status-error { color: #b00020; }
+    .status-info { color: #0277bd; }
     
     .controls { margin-bottom: 10px; }
     
-    /* Aflevering farver (Højt er godt) */
+    /* Farver */
     .pct-low { color: #b00020; font-weight: bold; }
     .pct-mid { color: #e67e22; font-weight: bold; }
     .pct-high { color: #2e7d32; font-weight: bold; }
 
-    /* Fravær farver (Lavt er godt) */
-    /* < 10% */
-    .abs-good { color: #2e7d32; font-weight: bold; } 
-    /* 10% - 25% */
-    .abs-warn { color: #f57f17; font-weight: bold; } 
-    /* > 25% */
-    .abs-bad { color: #b00020; font-weight: bold; }  
+    .abs-good { color: #2e7d32; font-weight: bold; } /* < 10% */
+    .abs-warn { color: #f57f17; font-weight: bold; } /* 10-25% */
+    .abs-bad { color: #b00020; font-weight: bold; }  /* > 25% */
     
     .badge { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; }
     .badge-ja { background-color: #c8e6c9; color: #1b5e20; }
@@ -107,6 +129,7 @@
     <!-- Upload Section -->
     <div class="card">
       <h2>Datakilder</h2>
+      
       <div class="upload-grid">
         <div class="upload-box">
           <h3>1. Opgaver (JSON)</h3>
@@ -118,8 +141,24 @@
           <p style="font-size:0.8rem; color:#666;">Fil med Lectio fraværsdata.</p>
           <input type="file" id="fileAbsence" accept="application/json" />
         </div>
+        <div class="upload-box" style="border-color:#2196F3; background:#e3f2fd;">
+          <h3>3. Gendan fra backup</h3>
+          <p style="font-size:0.8rem; color:#666;">Indlæs en tidligere eksport.</p>
+          <input type="file" id="fileBackup" accept="application/json" />
+        </div>
       </div>
+
       <div id="statusArea"></div>
+      
+      <div style="margin-top:10px; font-size:0.8rem; color:#666;">
+        <em>Info: Karakterer gemmes automatisk i din browser, når du taster dem ind.</em>
+      </div>
+
+      <!-- Admin Buttons -->
+      <div class="admin-section">
+        <button type="button" class="btn btn-export" onclick="exportData()">Eksporter alt data (JSON)</button>
+        <button type="button" class="btn btn-reset" onclick="resetGrades()">Nulstil alle karakterer</button>
+      </div>
     </div>
 
     <!-- Accordion Card: Oversigt -->
@@ -167,10 +206,66 @@
   let currentSort = 'worst_assign';
   let chartInstance = null;
 
+  // LocalStorage Key
+  const GRADES_STORAGE_KEY = 'dashboard_grades';
+
   // --- Event Listeners ---
   document.getElementById('fileAssignments').addEventListener('change', (e) => handleFileUpload(e, 'assignments'));
   document.getElementById('fileAbsence').addEventListener('change', (e) => handleFileUpload(e, 'absence'));
+  document.getElementById('fileBackup').addEventListener('change', (e) => handleBackupUpload(e));
 
+  // --- LocalStorage Helpers ---
+  function getSavedGrades() {
+    const data = localStorage.getItem(GRADES_STORAGE_KEY);
+    return data ? JSON.parse(data) : {};
+  }
+
+  function saveGradeToStorage(studentName, field, value) {
+    const allGrades = getSavedGrades();
+    if (!allGrades[studentName]) {
+      allGrades[studentName] = {};
+    }
+    allGrades[studentName][field] = value;
+    localStorage.setItem(GRADES_STORAGE_KEY, JSON.stringify(allGrades));
+  }
+
+  // --- Nulstil Funktion ---
+  function resetGrades() {
+    if (!confirm('Er du sikker på, at du vil slette ALLE gemte karakterer? Dette kan ikke fortrydes.')) {
+      return;
+    }
+    localStorage.removeItem(GRADES_STORAGE_KEY);
+    if (studentsGlobal.length > 0) {
+      studentsGlobal.forEach(s => { s.grades = { v1:'', s1:'', v2:'', s2:'' }; });
+      applySortAndRender();
+    }
+    addStatus('Alle karakterer er nulstillet.', 'ok');
+  }
+
+  // --- Eksport Funktion ---
+  function exportData() {
+    if (!rawAssignmentData && !rawAbsenceData) {
+      alert("Ingen data at eksportere endnu.");
+      return;
+    }
+
+    const exportObj = {
+      timestamp: new Date().toISOString(),
+      assignments: rawAssignmentData,
+      absence: rawAbsenceData,
+      grades: getSavedGrades()
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+    const downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", "dashboard_backup_" + new Date().toISOString().slice(0,10) + ".json");
+    document.body.appendChild(downloadAnchorNode);
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+  }
+
+  // --- Filhåndtering ---
   async function handleFileUpload(event, type) {
     const file = event.target.files[0];
     if (!file) return;
@@ -194,11 +289,42 @@
     }
   }
 
-  // --- Data Processing ---
+  async function handleBackupUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const json = JSON.parse(text);
+
+      // Tjek om det ligner vores backup format
+      if (!json.assignments && !json.absence && !json.grades) {
+        throw new Error("Ukendt format");
+      }
+
+      // Gendan data
+      if (json.assignments) rawAssignmentData = json.assignments;
+      if (json.absence) rawAbsenceData = json.absence;
+      
+      // Gendan karakterer i localStorage
+      if (json.grades) {
+        localStorage.setItem(GRADES_STORAGE_KEY, JSON.stringify(json.grades));
+      }
+
+      addStatus(`Backup gendannet: "${file.name}"`, 'info');
+      processAndRenderData();
+
+    } catch (e) {
+      console.error(e);
+      addStatus('Fejl: Filen er ikke en gyldig backup fil.', 'error');
+    }
+  }
+
+  // --- Databehandling ---
   function processAndRenderData() {
     if (!rawAssignmentData && !rawAbsenceData) return;
 
-    // Find unikke elevnavne
+    const savedGrades = getSavedGrades();
     const allNames = new Set();
     
     if (rawAssignmentData && !Array.isArray(rawAssignmentData)) {
@@ -211,16 +337,17 @@
 
     const students = [];
 
-    // Byg elev objekter
     allNames.forEach(name => {
+      const grades = savedGrades[name] || { v1:'', s1:'', v2:'', s2:'' };
+
       const studentObj = {
         name: name,
         total: 0, submitted: 0, missing: 0, progress: 0,
         assignments: [], hasAssignments: false,
-        periodAbsence: null, yearAbsence: null, hasAbsence: false
+        periodAbsence: null, yearAbsence: null, hasAbsence: false,
+        grades: grades 
       };
 
-      // Fyld opgavedata på
       if (rawAssignmentData && rawAssignmentData[name]) {
         const list = rawAssignmentData[name];
         if (Array.isArray(list)) {
@@ -233,7 +360,6 @@
         }
       }
 
-      // Fyld fraværsdata på
       if (rawAbsenceData && rawAbsenceData.students) {
         const absData = rawAbsenceData.students.find(s => s.name.trim() === name.trim());
         if (absData) {
@@ -269,7 +395,6 @@
   function renderDashboard() {
     if (studentsGlobal.length === 0) return;
 
-    // Oversigt
     const count = studentsGlobal.length;
     const studentsWithTasks = studentsGlobal.filter(s => s.hasAssignments);
     let avgProg = 0;
@@ -374,6 +499,9 @@
     let headerHtml = '<thead><tr><th>Elev</th>';
     if (showAssignCols) headerHtml += '<th>Afleveret / total</th><th>% afleveret</th><th>Mangler</th>';
     if (showAbsenceCols) headerHtml += '<th>Fravær (Per.)</th><th>Fravær (År)</th>';
+    
+    headerHtml += '<th>Vejl. 1</th><th>1. Stand.</th><th>Vejl. 2</th><th>2. Stand.</th>';
+    
     headerHtml += '</tr></thead><tbody>';
 
     let bodyHtml = '';
@@ -406,6 +534,23 @@
         }
       }
 
+      const g = s.grades || {};
+      const safeName = escapeHtml(s.name).replace(/'/g, "\\'"); 
+      
+      const createInput = (field, val) => `
+        <input type="text" 
+               class="grade-input" 
+               value="${val || ''}" 
+               onclick="event.stopPropagation()" 
+               oninput="updateStudentGrade('${safeName}', '${field}', this.value)" 
+        />
+      `;
+
+      cellsHtml += `<td>${createInput('v1', g.v1)}</td>`;
+      cellsHtml += `<td>${createInput('s1', g.s1)}</td>`;
+      cellsHtml += `<td>${createInput('v2', g.v2)}</td>`;
+      cellsHtml += `<td>${createInput('s2', g.s2)}</td>`;
+
       bodyHtml += `<tr class="student-row" onclick="toggleStudentRow(${index})">${cellsHtml}</tr>`;
 
       let detailContent = '';
@@ -415,9 +560,11 @@
         detailContent = `<div style="padding:10px; color:#666;">Ingen opgavedata.</div>`;
       }
 
+      const colSpan = 1 + (showAssignCols?3:0) + (showAbsenceCols?2:0) + 4;
+
       bodyHtml += `
         <tr id="${rowId}" class="detail-row" data-rendered="false">
-          <td colspan="${1 + (showAssignCols?3:0) + (showAbsenceCols?2:0)}" class="detail-cell">
+          <td colspan="${colSpan}" class="detail-cell">
             ${detailContent}
           </td>
         </tr>
@@ -438,6 +585,15 @@
     }).join('');
     return `<table class="inner-table"><thead><tr><th>Emne</th><th>Opgave</th><th>Afleveret</th></tr></thead><tbody>${rows}</tbody></table>`;
   }
+
+  window.updateStudentGrade = function(name, field, value) {
+    saveGradeToStorage(name, field, value);
+    const student = studentsGlobal.find(s => s.name === name);
+    if (student) {
+      if (!student.grades) student.grades = {};
+      student.grades[field] = value;
+    }
+  };
 
   function toggleStudentRow(index) {
     const row = document.getElementById('detail-row-' + index);
@@ -545,11 +701,10 @@
     return 'pct-high';
   }
 
-  // OPDATERET LOGIK HER
   function getAbsenceClass(val) {
-    if (val < 10) return 'abs-good';  // Under 10%
-    if (val <= 25) return 'abs-warn'; // 10% - 25%
-    return 'abs-bad';                 // Over 25%
+    if (val < 10) return 'abs-good';
+    if (val <= 25) return 'abs-warn';
+    return 'abs-bad';
   }
 
   function truncateString(str, num) {
