@@ -120,9 +120,102 @@
     #summaryContent { border-top: 1px solid #eee; padding-top: 10px; }
     #chartContent { height: 400px; width: 100%; border-top: 1px solid #eee; padding-top: 10px; }
     #chartContent canvas { width: 100% !important; height: 100% !important; }
+
+    /* Help button */
+    .help-button {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #1976d2;
+      color: white;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      z-index: 1000;
+      transition: background 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .help-button:hover {
+      background-color: #1565c0;
+      transform: scale(1.05);
+    }
+
+    /* Modal */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.5);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+      max-width: 800px;
+      width: 90%;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .modal-header {
+      padding: 15px 20px;
+      border-bottom: 1px solid #eee;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-header h2 {
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: #666;
+      padding: 0;
+      width: 30px;
+      height: 30px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      transition: background 0.2s;
+    }
+    .modal-close:hover {
+      background-color: #f0f0f0;
+      color: #333;
+    }
+    .modal-body {
+      padding: 0;
+      overflow: hidden;
+      flex: 1;
+    }
+    .modal-iframe {
+      width: 100%;
+      height: 70vh;
+      border: none;
+    }
   </style>
 </head>
 <body>
+  <!-- Help Button -->
+  <button class="help-button" onclick="openHelpModal()" title="Hjælp">?</button>
+
   <h1>Dashboard: Elev-overblik</h1>
   <div class="container">
     
@@ -715,6 +808,29 @@
   function escapeHtml(text) {
     return String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+
+  // Modal functions
+  function openHelpModal() {
+    document.getElementById('helpModal').style.display = 'flex';
+  }
+
+  function closeHelpModal() {
+    document.getElementById('helpModal').style.display = 'none';
+  }
 </script>
+
+<!-- Help Modal -->
+<div id="helpModal" class="modal-overlay">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h2>Hjælp & Instruktioner</h2>
+      <button class="modal-close" onclick="closeHelpModal()" title="Luk">×</button>
+    </div>
+    <div class="modal-body">
+      <iframe src="eksempel.html" class="modal-iframe"></iframe>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
